@@ -1,50 +1,74 @@
-import { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, FlatList, View, TouchableOpacity } from 'react-native';
+// Import React hook untuk state dan efek samping
+import { useState, useCallback } from 'react';
+import { SafeAreaView, Text, FlatList, StyleSheet, View, TouchableOpacity } from 'react-native'; // 🔧 tambah View & TouchableOpacity
 import TaskItem from '../src/components/TaskItem';
-import { dummyTasks } from '../src/data/dummyTasks';
+import { loadTasks, saveTasks } from '../src/storage/taskStorage';
+import { useFocusEffect } from 'expo-router';
 
 export default function HomeScreen() {
-  const [tasks, setTasks] = useState(dummyTasks);
-  const [filter, setFilter] = useState("all"); // state filter
+  const [tasks, setTasks] = useState([]);
+  const [filter, setFilter] = useState('all'); // 🔧 tambahan
 
-  const handleToggle = (task) => {
-    setTasks(prev =>
-      prev.map(t => t.id === task.id
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const data = await loadTasks();
+        setTasks(data);
+      })();
+    }, [])
+  );
+
+  const handleToggle = async (task) => {
+    const updated = tasks.map((t) =>
+      t.id === task.id
         ? { ...t, status: t.status === 'done' ? 'pending' : 'done' }
         : t
-      )
     );
+    setTasks(updated);
+    await saveTasks(updated);
   };
 
-  //  filter tasks sesuai pilihan tombol
-  const filteredTasks = tasks.filter(task => {
-    if (filter === "all") return true;
-    if (filter === "todo") return task.status === "pending";
-    if (filter === "done") return task.status === "done";
+  const handleDelete = async (task) => {
+    const updated = tasks.filter((t) => t.id !== task.id);
+    setTasks(updated);
+    await saveTasks(updated);
+  };
+
+  // 🔧 filter logic sederhana
+  const filteredTasks = tasks.filter((t) => {
+    if (filter === 'pending') return t.status === 'pending';
+    if (filter === 'done') return t.status === 'done';
+    if (filter === 'todo') return t.status === 'pending'; // todo = pending
+    return true;
   });
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.header}>TaskMate – Daftar Tugas</Text>
 
-      {/*Tombol filter */}
+      {/* 🔧 filter buttons */}
       <View style={styles.filterRow}>
-        <TouchableOpacity onPress={() => setFilter("all")} style={[styles.filterBtn, filter==="all" && styles.active]}>
-          <Text>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setFilter("todo")} style={[styles.filterBtn, filter==="todo" && styles.active]}>
-          <Text>Todo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setFilter("done")} style={[styles.filterBtn, filter==="done" && styles.active]}>
-          <Text>Done</Text>
-        </TouchableOpacity>
+        {['all', 'todo', 'pending', 'done'].map((f) => (
+          <TouchableOpacity
+            key={f}
+            onPress={() => setFilter(f)}
+            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+          >
+            <Text style={filter === f ? styles.filterTextActive : styles.filterText}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
-        data={filteredTasks} // 🔹 pakai filteredTasks
+        data={filteredTasks} // 🔧 ganti tasks → filteredTasks
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
-        renderItem={({ item }) => <TaskItem task={item} onToggle={handleToggle} />}
+        renderItem={({ item }) => (
+          <TaskItem task={item} onToggle={handleToggle} onDelete={handleDelete} />
+        )}
+        ListEmptyComponent={<Text style={{ textAlign: 'center' }}>Tidak ada tugas</Text>}
       />
     </SafeAreaView>
   );
@@ -54,8 +78,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: { fontSize: 20, fontWeight: '700', padding: 16 },
 
-  //style tombol filter
-  filterRow: { flexDirection: "row", justifyContent: "center", marginBottom: 10 },
-  filterBtn: { padding: 8, marginHorizontal: 5, backgroundColor: "#e2e8f0", borderRadius: 8 },
-  active: { backgroundColor: "#a5f3fc" },
+  // 🔧 tambahan style buat filter
+  filterRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 8 },
+  filterBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    marginHorizontal: 4,
+  },
+  filterBtnActive: { backgroundColor: '#3b82f6' },
+  filterText: { color: '#0f172a', fontWeight: '500' },
+  filterTextActive: { color: '#fff', fontWeight: '600' },
 });
