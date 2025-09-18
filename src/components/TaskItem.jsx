@@ -1,4 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Button } from 'react-native';
+import { colorOfName } from '../constants/categories';
+import { colorOfPriority } from '../constants/priorities';
+
 
 function deadlineLabel(deadline) {
   const today = new Date();
@@ -13,11 +16,10 @@ function deadlineLabel(deadline) {
   }
   return <Text style={{ color: 'green' }}>Sisa {diff} hari</Text>;
 }
-// Komponen TaskItem menerima props: task, onToggle, onDelete
+
 export default function TaskItem({ task, categories, onToggle, onDelete }) {
   const isDone = task.status === 'done';
-
-  // Warna badge ambil dari util sesuai kategori & prioritas
+  // [UPDATE] Warna badge ambil dari util sesuai kategori & prioritas
   const catColor = colorOfName(task.category ?? 'Umum', categories);
   const prioColor = colorOfPriority(task.priority ?? 'Low');
 
@@ -34,16 +36,15 @@ export default function TaskItem({ task, categories, onToggle, onDelete }) {
       priorityBg = '#e5e7eb'; // abu-abu muda
       break;
   }
-
-  // progress 0-100 → jika tidak ada, tidak dirender
+  // [OPSIONAL] progress 0-100 → jika tidak ada, tidak dirender
   const pct =
     typeof task.progress === 'number'
       ? Math.max(0, Math.min(100, task.progress))
       : null;
 
   return (
-    <View style={[styles.card, isDone && styles.cardDone, { backgroundColor: priorityBg }]}>
-      {/* Toggle status Done/Pending */}
+<View style={[styles.card, isDone && styles.cardDone, { backgroundColor: priorityBg }]}>
+      {/* [AKSI] Ketuk untuk toggle status Done/Pending */}
       <TouchableOpacity onPress={() => onToggle?.(task)} style={{ flex: 1 }}>
         <Text style={[styles.title, isDone && styles.strike]}>{task.title}</Text>
 
@@ -53,12 +54,7 @@ export default function TaskItem({ task, categories, onToggle, onDelete }) {
     {deadlineLabel(task.deadline)}
   </View>
 )}
-
-        {!!task.description && (
-          <Text style={styles.desc}>{task.description}</Text>
-        )}
-
-        {/* Badge kategori & prioritas */}
+        {/* [UPDATE] Badge kategori & prioritas */}
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
           <View
             style={[
@@ -82,7 +78,7 @@ export default function TaskItem({ task, categories, onToggle, onDelete }) {
           </View>
         </View>
 
-        {/* Progress bar */}
+        {/* [OPSIONAL] Progress bar tipis */}
         {pct !== null && (
           <View style={styles.progressWrap}>
             <View style={[styles.progressBar, { width: `${pct}%` }]} />
@@ -91,43 +87,57 @@ export default function TaskItem({ task, categories, onToggle, onDelete }) {
         )}
       </TouchableOpacity>
 
-      {/* Hapus task */}
+      {/* [AKSI] Hapus task */}
       <Button title="🗑" onPress={() => onDelete?.(task)} />
     </View>
   );
 }
 
-// Style
 const styles = StyleSheet.create({
   card: {
     padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 1,
     borderRadius: 16,
+    backgroundColor: '#fff',
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    // [STYLE] Shadow lembut
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  cardDone: { backgroundColor: '#f1f5f9' },
-  title: { fontSize: 16, fontWeight: '600', marginBottom: 4, color: '#0f172a' },
+  cardDone: { backgroundColor: '#f8fafc' },
+  title: { fontSize: 16, fontWeight: '700', marginBottom: 4, color: '#0f172a' },
   strike: { textDecorationLine: 'line-through', color: '#64748b' },
-  desc: { color: '#475569', marginBottom: 6 },
-  meta: { fontSize: 12, color: '#64748b' },
-
-  // 🔧 tambahan style tombol hapus
-  deleteBtn: {
-    padding: 8,
-    marginLeft: 8,
-    backgroundColor: '#fee2e2',
-    borderRadius: 8,
+  deadline: { fontSize: 12, color: '#334155', marginBottom: 4 },
+  desc: { color: '#475569' },
+  badge: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  badgeText: { fontSize: 12, fontWeight: '700' },
+  progressWrap: {
+    marginTop: 10,
+    height: 8,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 999,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressBar: { height: '100%', backgroundColor: '#0f172a' },
+  progressText: {
+    position: 'absolute',
+    right: 8,
+    top: -18,
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '600',
   },
 });
