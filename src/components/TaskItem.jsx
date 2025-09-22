@@ -1,60 +1,82 @@
+// src/components/TaskItem.jsx
 import { View, Text, StyleSheet, TouchableOpacity, Button } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colorOfName } from '../constants/categories';
 import { colorOfPriority } from '../constants/priorities';
 
+// helper deadlineInfo tetap sama (kalau sudah ada)
+// ...deadlineInfo(...) di sini...
+function deadlineInfo(deadline) {
+  if (!deadline) return { status: 'none', text: '' };
 
-function deadlineLabel(deadline) {
-  const today = new Date();
-  const due = new Date(deadline);
-  const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24)); // selisih hari
+  // Normalisasi ke 'YYYY-MM-DD'
+  const todayStr = new Date().toISOString().slice(0, 10);
 
-  if (diff < 0) {
-    return <Text style={{ color: 'red' }}>Overdue</Text>;
+  // Paksa jam 00:00 untuk hindari selisih karena timezone
+  const t = new Date(`${todayStr}T00:00:00`);
+  const d = new Date(`${deadline}T00:00:00`);
+
+  if (isNaN(d.getTime())) {
+    // Jika format deadline tidak valid, anggap tidak ada deadline
+    return { status: 'none', text: '' };
   }
-  if (diff === 0) {
-    return <Text style={{ color: 'orange' }}>Hari ini</Text>;
-  }
-  return <Text style={{ color: 'green' }}>Sisa {diff} hari</Text>;
+
+  const diffMs = d - t;
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (days < 0) return { status: 'overdue', text: 'Overdue' };
+  if (days === 0) return { status: 'today', text: 'Jatuh tempo: Hari ini' };
+  return { status: 'future', text: `Sisa ${days} hari` };
 }
 
 export default function TaskItem({ task, categories, onToggle, onDelete }) {
   const isDone = task.status === 'done';
-  // [UPDATE] Warna badge ambil dari util sesuai kategori & prioritas
   const catColor = colorOfName(task.category ?? 'Umum', categories);
   const prioColor = colorOfPriority(task.priority ?? 'Low');
 
-  // Warna background card sesuai prioritas
-  let priorityBg = '#f3f4f6'; // default abu-abu muda
-  switch ((task.priority ?? '').toLowerCase()) {
-    case 'high':
-      priorityBg = '#ffe4e6'; // merah muda
-      break;
-    case 'medium':
-      priorityBg = '#fef9c3'; // kuning muda
-      break;
-    case 'low':
-      priorityBg = '#e5e7eb'; // abu-abu muda
-      break;
-  }
-  // [OPSIONAL] progress 0-100 → jika tidak ada, tidak dirender
-  const pct =
-    typeof task.progress === 'number'
-      ? Math.max(0, Math.min(100, task.progress))
-      : null;
+  // >>> progress: fallback ke 0 bila undefined/null, lalu clamp 0–100
+  const raw = typeof task.progress === 'number' ? task.progress : 0;
+  const pct = Math.max(0, Math.min(100, raw));
+
+  const router = useRouter();
+  const info = deadlineInfo(task.deadline);
 
   return (
-<View style={[styles.card, isDone && styles.cardDone, { backgroundColor: priorityBg }]}>
-      {/* [AKSI] Ketuk untuk toggle status Done/Pending */}
+    <View
+      style={[
+        styles.card,
+        isDone && styles.cardDone,
+        info.status === 'overdue'
+          ? { borderColor: '#fecaca', backgroundColor: '#fff1f2' }
+          : info.status === 'future'
+          ? { borderColor: '#fde68a', backgroundColor: '#fffbeb' }
+          : {},
+      ]}
+    >
+      {/* Ketuk kartu untuk toggle status */}
       <TouchableOpacity onPress={() => onToggle?.(task)} style={{ flex: 1 }}>
-        <Text style={[styles.title, isDone && styles.strike]}>{task.title}</Text>
+        <Text style={[styles.title, isDone && styles.strike]}>
+          {task.title}
+        </Text>
 
         {!!task.deadline && (
-  <View style={{ marginBottom: 4 }}>
-    <Text style={styles.deadline}>Deadline: {task.deadline}</Text>
-    {deadlineLabel(task.deadline)}
-  </View>
-)}
-        {/* [UPDATE] Badge kategori & prioritas */}
+          <Text
+            style={[
+              styles.deadline,
+              info.status === 'overdue'
+                ? { color: '#dc2626', fontWeight: '700' }
+                : {},
+            ]}
+          >
+            Deadline: {task.deadline} {info.text ? `• ${info.text}` : ''}
+          </Text>
+        )}
+
+        {!!task.description && (
+          <Text style={styles.desc}>{task.description}</Text>
+        )}
+
+        {/* Badge kategori & prioritas */}
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
           <View
             style={[
@@ -78,17 +100,18 @@ export default function TaskItem({ task, categories, onToggle, onDelete }) {
           </View>
         </View>
 
-        {/* [OPSIONAL] Progress bar tipis */}
-        {pct !== null && (
-          <View style={styles.progressWrap}>
-            <View style={[styles.progressBar, { width: `${pct}%` }]} />
-            <Text style={styles.progressText}>{pct}%</Text>
-          </View>
-        )}
+        {/* >>> Progress bar biru selalu tampil (0–100) */}
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressBar, { width: `${pct}%` }]} />
+          <Text style={styles.progressText}>{pct}%</Text>
+        </View>
       </TouchableOpacity>
 
-      {/* [AKSI] Hapus task */}
-      <Button title="🗑" onPress={() => onDelete?.(task)} />
+      {/* Aksi Edit & Hapus */}
+      <View style={{ gap: 6 }}>
+        <Button title="Edit" onPress={() => router.push(`/edit/${task.id}`)} />
+        <Button title="🗑" onPress={() => onDelete?.(task)} />
+      </View>
     </View>
   );
 }
@@ -103,7 +126,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    // [STYLE] Shadow lembut
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -123,15 +145,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeText: { fontSize: 12, fontWeight: '700' },
+
+  // >>> progress styles: bar biru + label %
   progressWrap: {
     marginTop: 10,
-    height: 8,
+    height: 10,
     backgroundColor: '#e5e7eb',
     borderRadius: 999,
     overflow: 'hidden',
     position: 'relative',
   },
-  progressBar: { height: '100%', backgroundColor: '#0f172a' },
+  // biru sesuai permintaan (#2563eb)
+  progressBar: { height: '100%', backgroundColor: '#2563eb' },
   progressText: {
     position: 'absolute',
     right: 8,
